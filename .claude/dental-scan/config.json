@@ -174,5 +174,21 @@
   ],
   "target_min_images_per_dataset": 50,
   "per_iteration_limit_new_datasets": 200,
-  "stop_threshold_new_unique": 5
+  "stop_threshold_new_unique": 5,
+  "active_agents": [
+    "dental-search-noncarious",
+    "dental-search-soft-tissue",
+    "dental-search-perio",
+    "dental-search-surgical",
+    "dental-search-outreach"
+  ],
+  "paused_agents": [
+    "dental-search-caries",
+    "dental-search-restorative",
+    "dental-search-ortho-pediatric",
+    "dental-search-view",
+    "dental-search-ru-cis",
+    "dental-search-asia-latam-africa"
+  ],
+  "iter_4_notes": "Refocus: noncarious=fluorosis/hypoplasia/endemic priority; soft-tissue + perio keep; added surgical (phlegmon/MRONJ/fistula/exposed roots); added outreach campaign. 6 agents paused due to saturation."
 }
