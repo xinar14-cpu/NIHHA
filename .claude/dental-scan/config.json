@@ -1,0 +1,14 @@
+{
+  "iteration": 1,
+  "exclude_ids": [],
+  "stop_recommended": false,
+  "modality_blacklist": [
+    "radiograph", "x-ray", "xray", "periapical_radiograph",
+    "bitewing", "panoramic", "opg", "cephalometric",
+    "cbct", "cone_beam", "ct", "mri",
+    "3d_intraoral_scan", "stl_mesh", "histology"
+  ],
+  "target_min_images_per_dataset": 50,
+  "per_iteration_limit_new_datasets": 200,
+  "stop_threshold_new_unique": 5
+}
