@@ -69,27 +69,82 @@ Heading "Step 3 / 4  Kaggle CLI and API token"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  WARN: pip install kaggle had errors. Continuing." -ForegroundColor Yellow
 } else {
-    Write-Host "  Kaggle CLI installed" -ForegroundColor Green
+    Write-Host "  Kaggle CLI installed/updated" -ForegroundColor Green
 }
 
 $kaggleDir = Join-Path $env:USERPROFILE ".kaggle"
 $kaggleJson = Join-Path $kaggleDir "kaggle.json"
-if (Test-Path $kaggleJson) {
-    Write-Host "  Token already at $kaggleJson" -ForegroundColor Green
-} else {
-    Write-Host "  No token found at $kaggleJson" -ForegroundColor Yellow
-    Write-Host "  1) Open https://www.kaggle.com/settings -> Create New API Token"
-    Write-Host "     This downloads kaggle.json into your Downloads folder."
-    Write-Host "  2) Paste full path to kaggle.json below."
-    $src = Ask "  Path to kaggle.json"
-    if ($src -and (Test-Path $src)) {
+$accessTokenFile = Join-Path $kaggleDir "access_token"
+
+# Detect any existing token (either old kaggle.json or new access_token or env var)
+$haveToken = $false
+if (Test-Path $kaggleJson)        { Write-Host "  Found classic kaggle.json at $kaggleJson"      -ForegroundColor Green; $haveToken = $true }
+if (Test-Path $accessTokenFile)   { Write-Host "  Found access_token at $accessTokenFile"        -ForegroundColor Green; $haveToken = $true }
+if ($env:KAGGLE_API_TOKEN)        { Write-Host "  KAGGLE_API_TOKEN env var already set"          -ForegroundColor Green; $haveToken = $true }
+
+if (-not $haveToken) {
+    Write-Host "  No Kaggle credentials found." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Open https://www.kaggle.com/settings -> 'Create New API Token'."
+    Write-Host "  Kaggle now issues two formats. Either is fine:"
+    Write-Host ""
+    Write-Host "    A) NEW Personal Access Token starting with 'KGAT_...'"
+    Write-Host "       Just copy the token string (icon next to the field)."
+    Write-Host ""
+    Write-Host "    B) CLASSIC kaggle.json (older accounts)"
+    Write-Host "       The browser downloads a kaggle.json file."
+    Write-Host ""
+    $choice = Ask "  Which one do you have? Type A or B" "A"
+    $choice = $choice.Trim().ToUpper()
+
+    if ($choice -eq "A") {
+        $tok = Read-Host "  Paste the KGAT_... token (input is visible)"
+        $tok = $tok.Trim()
+        if (-not $tok) {
+            Write-Host "  ERROR: empty token. Cannot continue." -ForegroundColor Red
+            Read-Host "Press Enter to exit"; exit 2
+        }
         New-Item -ItemType Directory -Force -Path $kaggleDir | Out-Null
-        Copy-Item -Force -Path $src -Destination $kaggleJson
-        Write-Host "  Token installed at $kaggleJson" -ForegroundColor Green
-    } else {
-        Write-Host "  ERROR: kaggle.json not provided. Cannot continue." -ForegroundColor Red
+        # Write WITHOUT trailing newline (Kaggle CLI is strict about this on some versions)
+        [System.IO.File]::WriteAllText($accessTokenFile, $tok)
+        # Set env var for current session as a belt-and-braces fallback
+        $env:KAGGLE_API_TOKEN = $tok
+        Write-Host "  Token saved to $accessTokenFile" -ForegroundColor Green
+        Write-Host "  Also set KAGGLE_API_TOKEN env var for this session" -ForegroundColor Green
+        if (YesNo "  Save KAGGLE_API_TOKEN permanently to your User environment too?" $false) {
+            [Environment]::SetEnvironmentVariable("KAGGLE_API_TOKEN", $tok, "User")
+            Write-Host "  Saved to User env (takes effect in new shells)." -ForegroundColor Green
+        }
+    }
+    elseif ($choice -eq "B") {
+        $src = Ask "  Path to kaggle.json (e.g. C:\Users\You\Downloads\kaggle.json)"
+        if ($src -and (Test-Path $src)) {
+            New-Item -ItemType Directory -Force -Path $kaggleDir | Out-Null
+            Copy-Item -Force -Path $src -Destination $kaggleJson
+            Write-Host "  kaggle.json installed at $kaggleJson" -ForegroundColor Green
+        } else {
+            Write-Host "  ERROR: kaggle.json not provided / not found. Cannot continue." -ForegroundColor Red
+            Read-Host "Press Enter to exit"; exit 2
+        }
+    }
+    else {
+        Write-Host "  ERROR: pick A or B." -ForegroundColor Red
         Read-Host "Press Enter to exit"; exit 2
     }
+}
+
+# Smoke test: ask Kaggle CLI to do something cheap
+Write-Host ""
+Write-Host "  Testing Kaggle CLI auth..." -ForegroundColor Cyan
+$probe = & kaggle datasets list --max-size 1 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  WARN: Kaggle auth probe failed. The token may be invalid or your kaggle CLI is too old." -ForegroundColor Yellow
+    Write-Host "  Output: $probe" -ForegroundColor Yellow
+    if (-not (YesNo "  Continue anyway?" $false)) {
+        Read-Host "Press Enter to exit"; exit 2
+    }
+} else {
+    Write-Host "  Kaggle auth OK" -ForegroundColor Green
 }
 
 # 4. Run

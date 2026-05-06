@@ -40,14 +40,24 @@ def have_kaggle_cli() -> bool:
     return shutil.which("kaggle") is not None
 
 
-def have_kaggle_token() -> Path | None:
+def have_kaggle_token() -> str | None:
+    """Return a short string describing where the credential lives, or None.
+
+    Kaggle accepts either the classic kaggle.json or the newer
+    Personal Access Token (KGAT_...) via ~/.kaggle/access_token or the
+    KAGGLE_API_TOKEN environment variable.
+    """
+    if os.environ.get("KAGGLE_API_TOKEN"):
+        return "env:KAGGLE_API_TOKEN"
     home = Path.home()
-    candidates = [home / ".kaggle" / "kaggle.json"]
+    bases = [home / ".kaggle"]
     if os.name == "nt" and "USERPROFILE" in os.environ:
-        candidates.append(Path(os.environ["USERPROFILE"]) / ".kaggle" / "kaggle.json")
-    for p in candidates:
-        if p.exists():
-            return p
+        bases.append(Path(os.environ["USERPROFILE"]) / ".kaggle")
+    for base in bases:
+        for fn in ("kaggle.json", "access_token"):
+            p = base / fn
+            if p.exists():
+                return str(p)
     return None
 
 
@@ -77,15 +87,13 @@ def main():
         sys.exit(2)
     token = have_kaggle_token()
     if not token:
-        log("ERROR: kaggle.json token not found.")
-        log("  1) Visit https://www.kaggle.com/settings -> Create New API Token")
-        log("  2) Move kaggle.json into:")
-        if os.name == "nt":
-            log(f"     {os.environ.get('USERPROFILE','%USERPROFILE%')}\\.kaggle\\kaggle.json")
-        else:
-            log(f"     {Path.home() / '.kaggle' / 'kaggle.json'}")
+        log("ERROR: no Kaggle credentials found.")
+        log("  Visit https://www.kaggle.com/settings -> Create New API Token, then either:")
+        log("  - paste the KGAT_... token into ~/.kaggle/access_token")
+        log("  - or set env var KAGGLE_API_TOKEN=KGAT_...")
+        log("  - or move classic kaggle.json into ~/.kaggle/kaggle.json")
         sys.exit(2)
-    log(f"Kaggle token: {token}")
+    log(f"Kaggle credential: {token}")
 
     records = []
     with open(args.manifest, encoding="utf-8") as fh:
